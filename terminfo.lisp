@@ -45,7 +45,7 @@
 
 (defvar *terminfo* nil
   "The global terminfo structure used as a default variable
-for all commands with an optional terminfo parameter.  This 
+for all commands with an optional terminfo parameter.  This
 is set any time set-terminal is called.")
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
@@ -117,7 +117,7 @@ Returns nil for undefined capabilities."
 
 (defmacro defcap (name type index &optional docstring)
   "Along with defining the capability information:
-name 
+name
 type: boolean integer or string
 index
 defcap automaticlly defines and exports a symbol-macro
@@ -647,7 +647,7 @@ that calls the capability from *terminfo*."
 (defconstant +16-bit-magic+ #o432)
 (defconstant +32-bit-magic+ #o1036
   "Per the term(5) man page, 32-bit magic
-should be #o542, however, everyone 
+should be #o542, however, everyone
 apparently used 542 (#o1036) in practice.")
 
 (defun read-short (stream)
@@ -672,21 +672,8 @@ apparently used 542 (#o1036) in practice.")
       ((zerop c) (coerce (nreverse s) 'string))
     (push (code-char c) s)))
 
-(defun load-terminfo (name)
-  (let ((name (concatenate 'string #-darwin (string (char name 0))
-                           #+darwin (format nil "~X" (char-code (char name 0)))
-			   "/" name))
-        (number-format nil))
-    (dolist (path (list* (merge-pathnames
-                          (make-pathname :directory '(:relative ".terminfo"))
-                          (user-homedir-pathname))
-			 *terminfo-directories*))
-      (with-open-file (stream (merge-pathnames name path)
-                              :direction :input
-                              :element-type '(unsigned-byte 8)
-                              :if-does-not-exist nil)
-        (when stream
-          (flet ((read-number (stream)
+(defun load-terminfo-from-stream (stream)
+  (flet ((read-number (stream)
                    (ecase number-format
                      (:16-bit (read-short stream))
                      (:32-bit (read-int stream)))))
@@ -734,9 +721,25 @@ apparently used 542 (#o1036) in practice.")
                                   (position #\Null stringtable
                                             :start (aref strings i))))))
                 (setq strings xtrings))
-              (return (make-terminfo :number-format number-format
-                                     :names names :booleans booleans
-                                     :numbers numbers :strings strings)))))))))
+              (make-terminfo :number-format number-format
+                             :names names :booleans booleans
+                             :numbers numbers :strings strings))))
+
+(defun load-terminfo (name)
+  (let ((name (concatenate 'string #-darwin (string (char name 0))
+                           #+darwin (format nil "~X" (char-code (char name 0)))
+			   "/" name))
+        (number-format nil))
+    (dolist (path (list* (merge-pathnames
+                          (make-pathname :directory '(:relative ".terminfo"))
+                          (user-homedir-pathname))
+			 *terminfo-directories*))
+      (with-open-file (stream (merge-pathnames name path)
+                              :direction :input
+                              :element-type '(unsigned-byte 8)
+                              :if-does-not-exist nil)
+        (when stream
+          (return (load-terminfo-from-stream stream)))))))
 
 (defun xform (value format flags width precision)
   (let ((temp (make-array 8 :element-type 'character :fill-pointer 0
@@ -1120,7 +1123,7 @@ and t or nil for * which indicates a multiplier for lines affected."
                                 baud-rate (affected-lines 1)
                                 (terminfo *terminfo*))
   "Print a padding definition to the stream depending
-on the capability of the terminfo data. 
+on the capability of the terminfo data.
 
 If stream is nil, the padding characters or delay time
 in ms will be returned.  If a stream is provided, the
@@ -1149,7 +1152,7 @@ sleep for the specified time."
                      (make-string null-count :initial-element pad)))))))))
 
 (defmacro tputs (string &rest args)
-  "Given a string and its arguments, compose the appropriate command 
+  "Given a string and its arguments, compose the appropriate command
 for the terminfo terminal and put it into the stream, or return
 a list of strings and delay times when stream is nil.
 Keyword arguments are passed on to the executing function, and include:
@@ -1186,7 +1189,7 @@ String must already have been operated upon by tparm if necessary."
             (push printed result)))))))
 
 (defun set-terminal (&optional name)
-  "Load the terminfo database specified, or defined per 
+  "Load the terminfo database specified, or defined per
 the TERM environment variable."
   (setf *terminfo* (load-terminfo (or name
 				      #+ccl
